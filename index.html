@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partial Fraction Trainer | Advanced Math Practice</title>
+    <meta name="description"
+        content="Step-by-step partial fraction trainer for mathematics students. Practice proper and improper fractions with real-time feedback.">
+
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <!-- KaTeX CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
+    <!-- External Libraries (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.0/lib/browser/math.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root {
+            --bg-deep: #0f172a;
+            --accent-primary: #8b5cf6;
+            --accent-secondary: #06b6d4;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --correct: #10b981;
+            --error: #ef4444;
+            --sidebar-width: 20%;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* --- Layout --- */
+        #sidebar {
+            width: var(--sidebar-width);
+            min-width: 280px;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--glass-border);
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            z-index: 10;
+        }
+
+        #main-workspace {
+            flex: 1;
+            overflow-y: auto;
+            padding: 3rem 5rem;
+            position: relative;
+        }
+
+        /* --- Header & Branding --- */
+        .brand {
+            font-weight: 800;
+            font-size: 1.5rem;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #8b5cf6, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h2 {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* --- Problem Card --- */
+        .problem-container {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        #math-display {
+            font-size: 1.8rem;
+            margin: 1rem 0;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- Controls --- */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .btn {
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            padding: 1rem 1.5rem;
+            border-radius: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.3);
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(139, 92, 246, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .btn-secondary {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--glass-border);
+            box-shadow: none;
+        }
+
+        /* --- Checkbox Styling --- */
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-size: 0.95rem;
+            color: var(--text-dim);
+            cursor: pointer;
+        }
+
+        .option-item input {
+            accent-color: var(--accent-primary);
+            width: 1.1rem;
+            height: 1.1rem;
+        }
+
+        /* --- Workspace --- */
+        .workspace-header {
+            margin-bottom: 3rem;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 1.5rem;
+        }
+
+        .workspace-header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            padding-bottom: 100px;
+        }
+
+        .step-row {
+            display: grid;
+            grid-template-columns: 100px 1fr 150px;
+            gap: 1.5rem;
+            align-items: flex-start;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 1.5rem;
+            border-radius: 1.25rem;
+            transition: all 0.4s ease;
+            animation: slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .step-label {
+            font-weight: 800;
+            font-size: 0.9rem;
+            color: var(--accent-secondary);
+            text-transform: uppercase;
+            padding-top: 1rem;
+        }
+
+        .step-input-area {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .math-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            padding: 1rem 1.2rem;
+            border-radius: 0.8rem;
+            color: var(--text-main);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.2rem;
+            transition: border-color 0.3s;
+        }
+
+        .math-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .preview-area {
+            min-height: 40px;
+            padding: 0.5rem;
+            font-size: 1.3rem;
+        }
+
+        /* Feedback States */
+        .step-row.correct {
+            border-left: 6px solid var(--correct);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .step-row.error {
+            border-left: 6px solid var(--error);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
+        /* Floating Help */
+        .help-panel {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            max-width: 300px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--glass-border);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            backdrop-filter: blur(10px);
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+
+        .help-panel code {
+            color: var(--accent-secondary);
+            background: rgba(6, 182, 212, 0.1);
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.2rem;
+        }
+
+        #empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-dim);
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body>
+
+    <aside id="sidebar">
+        <div class="brand">Partial Fraction Trainer</div>
+
+        <div class="control-group">
+            <h2>Current Problem</h2>
+            <div class="problem-container">
+                <div id="math-display"></div>
+            </div>
+            <button class="btn" onclick="app.generateProblem()">New Problem</button>
+        </div>
+
+        <div class="control-group">
+            <h2>Parameters</h2>
+            <label class="option-item">
+                <input type="checkbox" id="opt-improper"> Improper allowed
+            </label>
+            <label class="option-item">
+                <input type="checkbox" id="opt-linear" checked disabled> Case 1: Linear (ax+b)
+            </label>
+            <label class="option-item">
+                <input type="checkbox" id="opt-repeated" checked> Case 2: Repeated (ax+b)^2
+            </label>
+            <label class="option-item">
+                <input type="checkbox" id="opt-quadratic" checked> Case 3: Quadratic (x^2+c^2)
+            </label>
+        </div>
+
+        <div style="margin-top: auto;">
+            <p style="font-size: 0.8rem; color: var(--text-dim);">
+                Tip: Use <code>^</code> for powers, <code>/</code> for fractions, and <code>()</code> for grouping.
+            </p>
+        </div>
+    </aside>
+
+    <main id="main-workspace">
+        <div class="workspace-header">
+            <h1>Step-by-Step Solver</h1>
+            <p style="color: var(--text-dim);">Break the expression down into its partial fractions. Each step will be
+                verified for mathematical equivalence.</p>
+        </div>
+
+        <div id="steps-container" class="steps-container">
+            <!-- Steps will appear here -->
+        </div>
+
+        <div id="empty-state">
+            Start by clicking "New Problem" or adding your first step...
+        </div>
+
+        <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+            <button class="btn" onclick="app.addStep()">+ Add Step</button>
+            <button class="btn btn-secondary" onclick="app.clearWorkspace()">Reset Workspace</button>
+        </div>
+    </main>
+
+    <div class="help-panel">
+        <strong>Symbolic Guide:</strong><br>
+        • A/(x-1) + B/(x+1)<br>
+        • (Ax+B)/(x^2+4) + C/(x+1)<br>
+        • (x^2+1)/(x(x-1)^2)<br>
+        <br>
+        <em>Verification uses random-point evaluation. Constants A, B... are treated as variables until solved.</em>
+    </div>
+
+    <script>
+        const app = {
+            currentProblem: null,
+            steps: [],
+
+            init() {
+                // Initialize mathjs for random complex points
+                this.generateProblem();
+            },
+
+            generateProblem() {
+                this.clearWorkspace();
+
+                const improper = document.getElementById('opt-improper').checked;
+                const repeated = document.getElementById('opt-repeated').checked;
+                const quadratic = document.getElementById('opt-quadratic').checked;
+
+                // Generator logic
+                // Factors: 1: (x+a), 2: (x+a)^2, 3: (x^2+a^2)
+                let factors = [];
+
+                // Always add at least two factors
+                const f1 = this.getRandomFactor(1);
+                factors.push(f1);
+
+                const factorType = Math.floor(Math.random() * 3) + 1;
+                if (factorType === 2 && repeated) factors.push(this.getRandomFactor(2));
+                else if (factorType === 3 && quadratic) factors.push(this.getRandomFactor(3));
+                else factors.push(this.getRandomFactor(1, f1.val)); // Ensure different linear factor
+
+                // Denominator Expression
+                const denStr = factors.map(f => f.str).join('');
+
+                // Numerator Degree
+                let denDegree = factors.reduce((acc, f) => acc + f.deg, 0);
+                let numDegree = improper ? denDegree + Math.floor(Math.random() * 2) : Math.floor(Math.random() * denDegree);
+
+                // Generate a random numerator polynomial
+                let coeffs = [];
+                for (let i = 0; i <= numDegree; i++) coeffs.push(Math.floor(Math.random() * 11) - 5 || 1);
+
+                let numStr = coeffs.map((c, i) => {
+                    if (c === 0) return '';
+                    let term = '';
+                    if (i === 0) term = `${c}`;
+                    else if (i === 1) term = `${c}x`;
+                    else term = `${c}x^${i}`;
+                    return c > 0 ? `+${term}` : term;
+                }).reverse().join('').replace(/^\+/, '');
+
+                this.currentProblem = {
+                    num: numStr || "1",
+                    den: denStr,
+                    isProper: numDegree < denDegree,
+                    raw: `(${numStr || "1"})/(${denStr})`,
+                    latex: `\\frac{${this.toLatex(numStr || "1")}}{${this.toLatex(denStr)}}`
+                };
+
+                katex.render(this.currentProblem.latex, document.getElementById('math-display'), { throwOnError: false });
+                document.getElementById('empty-state').style.display = 'none';
+            },
+
+            getRandomFactor(type, excludeVal) {
+                let a = Math.floor(Math.random() * 5) + 1;
+                let sign = Math.random() > 0.5 ? '+' : '-';
+                if (type === 1) {
+                    if (a === excludeVal) a++;
+                    return { str: `(x${sign}${a})`, deg: 1, val: a };
+                } else if (type === 2) {
+                    return { str: `(x${sign}${a})^2`, deg: 2, val: a };
+                } else {
+                    let c = Math.floor(Math.random() * 4) + 1;
+                    return { str: `(x^2+${c * c})`, deg: 2, val: c };
+                }
+            },
+
+            addStep() {
+                const stepCount = this.steps.length + 1;
+                let question = "";
+                if (stepCount === 1) question = "Is it a proper or an improper fraction?";
+                else if (stepCount === 2) question = "Key in the factorised denominator.";
+                else if (stepCount === 3) {
+                    if (!this.currentProblem.isProper) question = "Key in the expression after performing long division.";
+                    else question = "Key in the partial fraction decomposition.";
+                }
+
+                const stepId = Date.now();
+                const stepHtml = `
+                    <div class="step-row" id="step-${stepId}">
+                        <div class="step-label">Step ${stepCount}</div>
+                        <div class="step-input-area">
+                            ${question ? `<div style="font-size: 0.9rem; color: var(--text-dim); margin-bottom: 0.3rem; font-weight: 600;">${question}</div>` : ''}
+                            <input type="text" 
+                                   class="math-input" 
+                                   placeholder="${question ? 'Your answer...' : 'Type your working...'}" 
+                                   oninput="app.updatePreview('${stepId}', this.value)"
+                                   onkeydown="if(event.key === 'Enter') app.checkStep('${stepId}')">
+                            <div class="preview-area" id="preview-${stepId}"></div>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; flex-direction: column;">
+                            <button class="btn" style="padding: 0.6rem;" onclick="app.checkStep('${stepId}')">Check</button>
+                            <button class="btn btn-secondary" style="padding: 0.6rem; color:#ef4444;" onclick="app.removeStep('${stepId}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('steps-container').insertAdjacentHTML('beforeend', stepHtml);
+                this.steps.push({ id: stepId, content: '' });
+                document.getElementById('empty-state').style.display = 'none';
+
+                // Focus the new input
+                const row = document.getElementById(`step-${stepId}`);
+                row.querySelector('input').focus();
+            },
+
+            removeStep(id) {
+                document.getElementById(`step-${id}`).remove();
+                this.steps = this.steps.filter(s => s.id != id);
+                if (this.steps.length === 0) document.getElementById('empty-state').style.display = 'block';
+            },
+
+            updatePreview(id, val) {
+                const preview = document.getElementById(`preview-${id}`);
+                const latex = this.toLatex(val);
+                katex.render(latex, preview, { throwOnError: false, displayMode: false });
+            },
+
+            checkStep(id) {
+                const row = document.getElementById(`step-${id}`);
+                const val = row.querySelector('input').value;
+                const stepIndex = this.steps.findIndex(s => s.id == id);
+                const stepCount = stepIndex + 1;
+
+                if (!val.trim()) return;
+
+                let isCorrect = false;
+
+                if (stepCount === 1) {
+                    // Step 1: Proper/Improper check
+                    const ans = val.toLowerCase();
+                    if (this.currentProblem.isProper) {
+                        isCorrect = ans.includes('proper') && !ans.includes('improper');
+                    } else {
+                        isCorrect = ans.includes('improper');
+                    }
+                } else if (stepCount === 2) {
+                    // Step 2: Factorized denominator check
+                    isCorrect = this.compareExpressions(val, this.currentProblem.den);
+                } else {
+                    // General equivalence check
+                    isCorrect = this.compareExpressions(val, this.currentProblem.raw);
+                }
+
+                row.classList.remove('correct', 'error');
+                void row.offsetWidth; // Trigger reflow
+
+                if (isCorrect) {
+                    row.classList.add('correct');
+                    // If it looks like a final answer (contains no generic A, B, C) and it's not the first two steps
+                    if (stepCount > 2 && !/[A-E]/.test(val)) {
+                        this.showSuccess();
+                    }
+                } else {
+                    row.classList.add('error');
+                }
+            },
+
+            compareExpressions(userInput, targetRaw) {
+                try {
+                    const problemExpr = math.parse(targetRaw).compile();
+
+                    let processedInput = userInput
+                        .replace(/([A-E])\(/g, '$1*(')
+                        .replace(/([0-9])x/g, '$1*x');
+
+                    const userExpr = math.parse(processedInput).compile();
+
+                    // Check at 3 random complex numbers to avoid zeros/poles
+                    for (let i = 0; i < 3; i++) {
+                        const x = math.complex(Math.random() * 10 + 1, Math.random() * 10 + 1);
+                        const constants = {
+                            A: math.complex(2.1, 1.4),
+                            B: math.complex(-1.5, 0.7),
+                            C: math.complex(0.3, -2.2),
+                            D: math.complex(1.1, 1.1),
+                            E: math.complex(-0.5, -0.5)
+                        };
+
+                        const scope = { x, ...constants };
+                        const probVal = problemExpr.evaluate(scope);
+                        const userVal = userExpr.evaluate(scope);
+
+                        const diff = math.abs(math.subtract(probVal, userVal));
+                        if (diff > 1e-6) return false;
+                    }
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            },
+
+            verifyEquivalence(userInput) {
+                return this.compareExpressions(userInput, this.currentProblem.raw);
+            },
+
+            toLatex(str) {
+                if (!str) return "";
+                try {
+                    // Basic string replacements for nicer input
+                    let processed = str
+                        .replace(/\//g, " \\div ") // Temporary for fraction handling
+                        .replace(/\*/g, " \\cdot ");
+
+                    // Simple fraction converter logic for prototype
+                    // In a real app, use math.js parse tree to generate LaTeX
+                    try {
+                        return math.parse(str).toTex({ parenthesized: 'keep' });
+                    } catch (e) {
+                        return str;
+                    }
+                } catch (e) { return str; }
+            },
+
+            clearWorkspace() {
+                document.getElementById('steps-container').innerHTML = '';
+                this.steps = [];
+                document.getElementById('empty-state').style.display = 'block';
+            },
+
+            showSuccess() {
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#8b5cf6', '#06b6d4', '#10b981']
+                });
+            }
+        };
+
+        window.onload = () => app.init();
+    </script>
+</body>
+
+</html>
