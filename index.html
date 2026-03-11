@@ -79,6 +79,7 @@
             letter-spacing: -0.5px;
             background: linear-gradient(to right, #8b5cf6, #06b6d4);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -275,6 +276,42 @@
             font-size: 0.85rem;
             color: var(--text-dim);
             line-height: 1.6;
+            z-index: 100;
+        }
+
+        .help-panel .close-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-dim);
+            transition: all 0.2s;
+        }
+
+        .help-panel .close-btn:hover {
+            background: var(--error);
+            color: white;
+        }
+
+        .hint-text {
+            font-size: 0.85rem;
+            color: var(--accent-secondary);
+            margin-top: 0.5rem;
+            display: none;
+            font-style: italic;
+        }
+
+        .error-factor {
+            color: var(--error);
+            font-weight: bold;
         }
 
         .help-panel code {
@@ -310,6 +347,9 @@
             <h2>Parameters</h2>
             <label class="option-item">
                 <input type="checkbox" id="opt-improper"> Improper allowed
+            </label>
+            <label class="option-item">
+                <input type="checkbox" id="opt-factorised" checked> Factorised denominator
             </label>
             <label class="option-item">
                 <input type="checkbox" id="opt-linear" checked disabled> Case 1: Linear (ax+b)
@@ -350,11 +390,12 @@
         </div>
     </main>
 
-    <div class="help-panel">
+    <div class="help-panel" id="symbolic-guide">
+        <div class="close-btn" onclick="document.getElementById('symbolic-guide').style.display='none'">✕</div>
         <strong>Symbolic Guide:</strong><br>
         • A/(x-1) + B/(x+1)<br>
         • (Ax+B)/(x^2+4) + C/(x+1)<br>
-        • (x^2+1)/(x(x-1)^2)<br>
+        • (x+2)/(x(x-1)^2) = A/x + B/(x-1) + C/(x-1)^2<br>
         <br>
         <em>Verification uses random-point evaluation. Constants A, B... are treated as variables until solved.</em>
     </div>
@@ -373,6 +414,7 @@
                 this.clearWorkspace();
 
                 const improper = document.getElementById('opt-improper').checked;
+                const factorised = document.getElementById('opt-factorised').checked;
                 const repeated = document.getElementById('opt-repeated').checked;
                 const quadratic = document.getElementById('opt-quadratic').checked;
 
@@ -409,16 +451,74 @@
                     return c > 0 ? `+${term}` : term;
                 }).reverse().join('').replace(/^\+/, '');
 
+                // Denominator for display (expanded vs factorised)
+                let displayDenLatex = this.toLatex(denStr);
+                if (!factorised) {
+                    try {
+                        const productStr = factors.map(f => f.str).join('*');
+                        const expanded = math.rationalize(productStr);
+                        // Use implicit: 'hide' to prevent dots between terms
+                        displayDenLatex = expanded.toTex({ implicit: 'hide' }).replace(/\\cdot/g, "");
+                    } catch (e) {
+                        displayDenLatex = this.toLatex(denStr);
+                    }
+                }
+
                 this.currentProblem = {
                     num: numStr || "1",
-                    den: denStr,
+                    den: denStr, // Internal factorised version for comparison
+                    factors: factors,
+                    degNum: numDegree,
+                    degDen: denDegree,
                     isProper: numDegree < denDegree,
                     raw: `(${numStr || "1"})/(${denStr})`,
-                    latex: `\\frac{${this.toLatex(numStr || "1")}}{${this.toLatex(denStr)}}`
+                    latex: `\\frac{${this.toLatex(numStr || "1")}}{${displayDenLatex}}`
                 };
 
+                this.solveCurrentProblem();
                 katex.render(this.currentProblem.latex, document.getElementById('math-display'), { throwOnError: false });
                 document.getElementById('empty-state').style.display = 'none';
+            },
+
+            solveCurrentProblem() {
+                const p = this.currentProblem;
+                p.targetTerms = [];
+                try {
+                    p.factors.forEach(f => {
+                        const m = f.str.match(/\(x([\+\-])(\d+)\)(\^(\d+))?/);
+                        if (m) {
+                            const rVal = parseInt(m[2]);
+                            const root = m[1] === '+' ? -rVal : rVal;
+                            const mult = m[4] ? parseInt(m[4]) : 1;
+                            const others = p.factors.filter(x => x !== f).map(x => x.str).join('*') || '1';
+                            // Simple cover-up at root
+                            const res = math.evaluate(`(${p.num})/(${others})`, { x: root });
+                            p.targetTerms.push({ root, res, mult, rVal });
+                        }
+                    });
+                } catch (e) { }
+                // Pre-solve the problem constants for feedback
+                // We use math.js to evaluate the numerator at factor roots (simplified cover-up)
+                // This is for Step 3/4 feedback
+                p.solved = {
+                    quotient: null,
+                    remainderNum: null,
+                    constants: {} // Maps factors to values
+                };
+
+                try {
+                    // 1. Long division if improper
+                    if (!p.isProper) {
+                        const q = math.simplify(`floor((${p.num}) / (${p.den}))`);
+                        const r = math.simplify(`(${p.num}) - (${q} * (${p.den}))`);
+                        p.solved.quotient = q.toString();
+                        p.solved.remainderNum = r.toString();
+                    }
+
+                    // 2. Partial Fraction Constants (Numerical approximation)
+                    // We'll calculate target values for A, B, C...
+                    // For feedback, we just need the expected numerical values of any constants
+                } catch (e) { console.error("Solving failed", e); }
             },
 
             getRandomFactor(type, excludeVal) {
@@ -443,6 +543,8 @@
                 else if (stepCount === 3) {
                     if (!this.currentProblem.isProper) question = "Key in the expression after performing long division.";
                     else question = "Key in the partial fraction decomposition.";
+                } else if (stepCount === 4 && !this.currentProblem.isProper) {
+                    question = "Key in the Final partial fraction decomposition";
                 }
 
                 const stepId = Date.now();
@@ -457,6 +559,7 @@
                                    oninput="app.updatePreview('${stepId}', this.value)"
                                    onkeydown="if(event.key === 'Enter') app.checkStep('${stepId}')">
                             <div class="preview-area" id="preview-${stepId}"></div>
+                            <div class="hint-text" id="hint-${stepId}"></div>
                         </div>
                         <div style="display: flex; gap: 0.5rem; flex-direction: column;">
                             <button class="btn" style="padding: 0.6rem;" onclick="app.checkStep('${stepId}')">Check</button>
@@ -512,16 +615,172 @@
                 }
 
                 row.classList.remove('correct', 'error');
+                const hintEl = document.getElementById(`hint-${id}`);
+                hintEl.style.display = 'none';
+                hintEl.innerHTML = '';
                 void row.offsetWidth; // Trigger reflow
 
                 if (isCorrect) {
                     row.classList.add('correct');
-                    // If it looks like a final answer (contains no generic A, B, C) and it's not the first two steps
                     if (stepCount > 2 && !/[A-E]/.test(val)) {
                         this.showSuccess();
                     }
                 } else {
                     row.classList.add('error');
+                    // Add Hints
+                    if (stepCount === 1) {
+                        hintEl.innerHTML = "Compare the degree of the polynomials in the numerator and denominator and try again.";
+                        hintEl.style.display = 'block';
+                    } else if (stepCount === 2) {
+                        // Highlight wrong factors
+                        this.checkStep2Factors(id, val);
+                    } else if (stepCount >= 3) {
+                        this.highlightIncorrectNumbers(id, val);
+                        this.provideDecompositionHints(id, val);
+                    }
+                }
+            },
+
+            highlightIncorrectNumbers(id, val) {
+                const previewEl = document.getElementById(`preview-${id}`);
+                const p = this.currentProblem;
+                try {
+                    const userNode = math.parse(val);
+                    if (this.compareExpressions(val, p.raw)) return;
+
+                    const terms = [];
+                    const collect = (node) => {
+                        if (node.isOperatorNode && node.op === '+') node.args.forEach(collect);
+                        else if (node.isOperatorNode && node.op === '-') {
+                            collect(node.args[0]);
+                            terms.push(math.parse(`-1 * (${node.args[1].toString()})`));
+                        }
+                        else terms.push(node);
+                    };
+                    collect(userNode);
+
+                    const wrongNodes = new Set();
+                    terms.forEach(term => {
+                        let bestMatch = null;
+                        try {
+                            const uRoot = this.getTermRoot(term);
+                            bestMatch = p.targetTerms.find(t => t.root === uRoot);
+                        } catch (e) { }
+
+                        term.traverse((node) => {
+                            if (node.isConstantNode && typeof node.value === 'number') {
+                                if (!this.isConstantCorrectInTerm(term, node, bestMatch)) {
+                                    wrongNodes.add(node);
+                                }
+                            }
+                        });
+                    });
+
+                    if (wrongNodes.size > 0) {
+                        katex.render(this.toLatex(userNode, wrongNodes), previewEl, { throwOnError: false });
+                    }
+                } catch (e) { }
+            },
+
+            getTermRoot(node) {
+                let root = null;
+                node.traverse(n => {
+                    if (n.isOperatorNode && (n.op === '+' || n.op === '-')) {
+                        const hasX = n.args.some(a => a.toString().includes('x'));
+                        const cNode = n.args.find(a => a.isConstantNode);
+                        if (hasX && cNode) {
+                            root = (n.op === '+') ? -cNode.value : cNode.value;
+                        }
+                    }
+                });
+                return root;
+            },
+
+            isConstantCorrectInTerm(term, cNode, target) {
+                if (!target) return false;
+                const val = cNode.value;
+                if (val === Math.abs(target.root) || val === Math.abs(target.res)) return true;
+
+                try {
+                    const testVar = '___c___';
+                    const testNode = term.transform(n => n === cNode ? new math.SymbolNode(testVar) : n);
+                    const compiled = testNode.compile();
+
+                    const check = (cValue) => {
+                        const x = target.root + 0.1;
+                        const v = compiled.evaluate({ x, [testVar]: cValue });
+                        const targetV = math.evaluate(`(${target.res})/(x - ${target.root})`, { x });
+                        return Math.abs(v - targetV) < 1e-5;
+                    };
+                    return check(val);
+                } catch (e) { return true; }
+            },
+
+            checkStep2Factors(id, val) {
+                const hintEl = document.getElementById(`hint-${id}`);
+                const previewEl = document.getElementById(`preview-${id}`);
+
+                try {
+                    const normalizedVal = val.replace(/\s+/g, '');
+                    const userFactors = normalizedVal.split(/[\(\)]+/).filter(f => f.trim().length > 0);
+                    const targetFactors = this.currentProblem.factors.map(f => f.str.replace(/[\(\)]/g, '').replace(/\s+/g, ''));
+
+                    let feedbackLatex = "";
+                    let allCorrect = true;
+
+                    userFactors.forEach(uf => {
+                        const isMatch = targetFactors.some(tf => this.compareExpressions(uf, tf));
+                        if (isMatch) {
+                            feedbackLatex += `(${this.toLatex(uf)})`;
+                        } else {
+                            feedbackLatex += `{\\color{red}(${this.toLatex(uf)})}`;
+                            allCorrect = false;
+                        }
+                    });
+
+                    if (!allCorrect) {
+                        katex.render(feedbackLatex, previewEl, { throwOnError: false });
+                        hintEl.innerHTML = "Some factors appear to be incorrect. Check the red parts.";
+                        hintEl.style.display = 'block';
+                    }
+                } catch (e) {
+                    hintEl.innerHTML = "Ensure your factors are written clearly, e.g., (x+1)(x-2)";
+                    hintEl.style.display = 'block';
+                }
+            },
+
+            provideDecompositionHints(id, val) {
+                const hintEl = document.getElementById(`hint-${id}`);
+
+                // Case: Missing term for repeated linear factor (ax+b)^2
+                const hasRepeated = this.currentProblem.factors.some(f => f.deg === 2 && f.str.includes('^2'));
+                if (hasRepeated) {
+                    const repeatedFactor = this.currentProblem.factors.find(f => f.deg === 2 && f.str.includes('^2'));
+                    const baseFactor = repeatedFactor.str.split('^')[0].replace(/\s+/g, ''); // e.g. (x+1)
+                    const normalizedVal = val.replace(/\s+/g, '');
+
+                    // Count occurrences of base factor in user input
+                    const baseMatches = (normalizedVal.match(new RegExp(baseFactor.replace(/[\(\)\+\-]/g, '\\$&'), 'g')) || []).length;
+                    if (baseMatches < 2) {
+                        hintEl.innerHTML = "Check the partial fraction decomposition terms again, you are missing one term.";
+                        hintEl.style.display = 'block';
+                        return;
+                    }
+                }
+
+                // Case: Correct structure but wrong constants
+                // We check if it's correct when constants A, B, C are variables, 
+                // but wrong when they are treated as their actual values (if user put numbers)
+                // Actually, our compareExpressions already handles A, B, C as symbols.
+                // If the user entered numbers and it failed, then compare it with symbols.
+
+                if (/[0-9]/.test(val) && !/[A-E]/.test(val)) {
+                    // Check if it's correct when we treat the numbers as "possible constants"
+                    // This is hard to do generally, but we can check if it's mathematically equivalent 
+                    // TO THE ORIGINAL if user input had A, B, C instead. 
+                    // Simpler: If the user didn't use A, B, C but has fractions, suggest checking constants.
+                    hintEl.innerHTML = "Check the constants again.";
+                    hintEl.style.display = 'block';
                 }
             },
 
@@ -563,22 +822,20 @@
                 return this.compareExpressions(userInput, this.currentProblem.raw);
             },
 
-            toLatex(str) {
+            toLatex(str, wrongNodes = new Set()) {
                 if (!str) return "";
                 try {
-                    // Basic string replacements for nicer input
-                    let processed = str
-                        .replace(/\//g, " \\div ") // Temporary for fraction handling
-                        .replace(/\*/g, " \\cdot ");
-
-                    // Simple fraction converter logic for prototype
-                    // In a real app, use math.js parse tree to generate LaTeX
-                    try {
-                        return math.parse(str).toTex({ parenthesized: 'keep' });
-                    } catch (e) {
-                        return str;
-                    }
-                } catch (e) { return str; }
+                    const node = typeof str === 'string' ? math.parse(str) : str;
+                    return node.toTex({
+                        parenthesized: 'keep',
+                        implicit: 'hide',
+                        handler: (node, callback) => {
+                            if (wrongNodes.has(node)) {
+                                return `{\\color{red}${node.value}}`;
+                            }
+                        }
+                    }).replace(/\\cdot/g, "");
+                } catch (e) { return typeof str === 'string' ? str : ""; }
             },
 
             clearWorkspace() {
