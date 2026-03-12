@@ -54,14 +54,14 @@
         /* --- Layout --- */
         #sidebar {
             width: var(--sidebar-width);
-            min-width: 220px;
+            min-width: 320px;
             background: rgba(0, 0, 0, 0.4);
             backdrop-filter: blur(20px);
             border-right: 1px solid var(--glass-border);
-            padding: 2.5rem;
+            padding: 1.5rem;
             display: flex;
             flex-direction: column;
-            gap: 2rem;
+            gap: 1.5rem;
             z-index: 10;
         }
 
@@ -345,10 +345,10 @@
             <div class="problem-container">
                 <div id="math-display"></div>
             </div>
-            <div style="display: flex; gap: 0.8rem; align-items: stretch; justify-content: space-between; margin-top: 1rem;">
-                <button class="btn" style="flex: 1; padding: 0.6rem;" onclick="app.generateProblem()">New Problem</button>
-                <div id="timer-display" style="display: flex; align-items: center; justify-content: center; font-family: monospace; font-size: 1.1rem; font-weight: 600; color: var(--accent-secondary); background: rgba(0,0,0,0.5); padding: 0 0.8rem; border-radius: 0.5rem; border: 1px solid var(--glass-border);">00:00:00</div>
-                <button class="btn btn-secondary" id="timer-btn" style="padding: 0.6rem 1rem;" onclick="app.toggleTimer()">Start</button>
+            <div style="display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: stretch; justify-content: space-between; margin-top: 1rem;">
+                <button class="btn" style="flex: 1; padding: 0.6rem; min-width: 120px;" onclick="app.generateProblem()">New Problem</button>
+                <div id="timer-display" style="flex: 1; min-width: 90px; display: flex; align-items: center; justify-content: center; font-family: monospace; font-size: 1.1rem; font-weight: 600; color: var(--accent-secondary); background: rgba(0,0,0,0.5); padding: 0 0.8rem; border-radius: 0.5rem; border: 1px solid var(--glass-border);">00:00:00</div>
+                <button class="btn btn-secondary" id="timer-btn" style="flex: 1; min-width: 80px; padding: 0.6rem 1rem;" onclick="app.toggleTimer()">Start</button>
             </div>
         </div>
 
