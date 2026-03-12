@@ -46,9 +46,12 @@
             font-family: 'Outfit', sans-serif;
             background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
             color: var(--text-main);
-            height: 100vh;
+            height: 100dvh; /* Better for iOS Safari */
+            min-height: 100vh;
             overflow: hidden;
             display: flex;
+            position: fixed; /* Fixes body scroll bounce on iOS */
+            width: 100%;
         }
 
         /* --- Layout --- */
@@ -63,11 +66,14 @@
             flex-direction: column;
             gap: 1.5rem;
             z-index: 10;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch; /* Fixes iOS scroll freeze */
         }
 
         #main-workspace {
             flex: 1;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch; /* Fixes iOS scroll freeze */
             padding: 3rem 5rem;
             position: relative;
         }
@@ -114,6 +120,7 @@
             justify-content: center;
             overflow-x: auto;
             overflow-y: hidden;
+            -webkit-overflow-scrolling: touch; /* Fixes iOS scroll freeze */
             padding: 0.5rem;
         }
 
