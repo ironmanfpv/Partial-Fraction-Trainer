@@ -32,7 +32,7 @@
             --text-dim: #94a3b8;
             --correct: #10b981;
             --error: #ef4444;
-            --sidebar-width: 20%;
+            --sidebar-width: 22%;
         }
 
         * {
@@ -54,7 +54,7 @@
         /* --- Layout --- */
         #sidebar {
             width: var(--sidebar-width);
-            min-width: 280px;
+            min-width: 220px;
             background: rgba(0, 0, 0, 0.4);
             backdrop-filter: blur(20px);
             border-right: 1px solid var(--glass-border);
@@ -81,6 +81,7 @@
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
+            white-space: normal;
         }
 
         h2 {
@@ -97,19 +98,23 @@
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
             border-radius: 1.5rem;
-            padding: 2rem;
+            padding: 1rem;
             text-align: center;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             animation: fadeIn 0.8s ease-out;
+            max-width: 100%;
         }
 
         #math-display {
-            font-size: 1.8rem;
-            margin: 1rem 0;
-            min-height: 80px;
+            font-size: 1.3rem;
+            margin: 0;
+            min-height: 60px;
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 0.5rem;
         }
 
         /* --- Controls --- */
@@ -172,7 +177,7 @@
         }
 
         .workspace-header h1 {
-            font-size: 2.5rem;
+            font-size: 1.5rem;
             font-weight: 800;
             margin-bottom: 0.5rem;
         }
@@ -340,7 +345,11 @@
             <div class="problem-container">
                 <div id="math-display"></div>
             </div>
-            <button class="btn" onclick="app.generateProblem()">New Problem</button>
+            <div style="display: flex; gap: 0.8rem; align-items: stretch; justify-content: space-between; margin-top: 1rem;">
+                <button class="btn" style="flex: 1; padding: 0.6rem;" onclick="app.generateProblem()">New Problem</button>
+                <div id="timer-display" style="display: flex; align-items: center; justify-content: center; font-family: monospace; font-size: 1.1rem; font-weight: 600; color: var(--accent-secondary); background: rgba(0,0,0,0.5); padding: 0 0.8rem; border-radius: 0.5rem; border: 1px solid var(--glass-border);">00:00:00</div>
+                <button class="btn btn-secondary" id="timer-btn" style="padding: 0.6rem 1rem;" onclick="app.toggleTimer()">Start</button>
+            </div>
         </div>
 
         <div class="control-group">
@@ -365,6 +374,11 @@
         <div style="margin-top: auto;">
             <p style="font-size: 0.8rem; color: var(--text-dim);">
                 Tip: Use <code>^</code> for powers, <code>/</code> for fractions, and <code>()</code> for grouping.
+            </p>
+            <p style="font-size: 0.7rem; margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; white-space: nowrap; color: var(--text-dim);">
+                <a href="https://sites.google.com/view/math-templates/polynomial-long-div" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: bold; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--accent)'">Polynomial Long Division Generator</a>
+                <span style="margin: 0 0.3rem;">|</span>
+                <a href="https://tinyurl.com/AlgebraicGPT4" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: bold; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--accent)'">Algebraic GPT4</a>
             </p>
         </div>
     </aside>
@@ -404,14 +418,49 @@
         const app = {
             currentProblem: null,
             steps: [],
+            timerInterval: null,
+            timerStartTime: 0,
+            timerRunning: false,
 
             init() {
                 // Initialize mathjs for random complex points
                 this.generateProblem();
             },
 
+            toggleTimer() {
+                if (this.timerRunning) this.stopTimer();
+                else this.startTimer();
+            },
+
+            startTimer() {
+                if (this.timerRunning) return;
+                this.timerStartTime = Date.now();
+                this.timerRunning = true;
+                document.getElementById('timer-btn').innerText = "Stop";
+                this.timerInterval = setInterval(() => {
+                    const elapsed = Date.now() - this.timerStartTime;
+                    const min = Math.floor(elapsed / 60000).toString().padStart(2, '0');
+                    const sec = Math.floor((elapsed % 60000) / 1000).toString().padStart(2, '0');
+                    const ms = Math.floor((elapsed % 1000) / 10).toString().padStart(2, '0');
+                    document.getElementById('timer-display').innerText = `${min}:${sec}:${ms}`;
+                }, 10);
+            },
+
+            stopTimer() {
+                if (!this.timerRunning) return;
+                clearInterval(this.timerInterval);
+                this.timerRunning = false;
+                document.getElementById('timer-btn').innerText = "Start";
+            },
+
+            resetTimer() {
+                this.stopTimer();
+                document.getElementById('timer-display').innerText = "00:00:00";
+            },
+
             generateProblem() {
                 this.clearWorkspace();
+                this.resetTimer();
 
                 const improper = document.getElementById('opt-improper').checked;
                 const factorised = document.getElementById('opt-factorised').checked;
@@ -445,9 +494,14 @@
                 let numStr = coeffs.map((c, i) => {
                     if (c === 0) return '';
                     let term = '';
-                    if (i === 0) term = `${c}`;
-                    else if (i === 1) term = `${c}x`;
-                    else term = `${c}x^${i}`;
+                    if (i === 0) {
+                        term = `${c}`;
+                    } else {
+                        let absC = Math.abs(c);
+                        let coeffStr = (absC === 1) ? '' : absC.toString();
+                        let xPart = i === 1 ? 'x' : `x^${i}`;
+                        term = (c < 0 ? '-' : '') + coeffStr + xPart;
+                    }
                     return c > 0 ? `+${term}` : term;
                 }).reverse().join('').replace(/^\+/, '');
 
@@ -458,7 +512,7 @@
                         const productStr = factors.map(f => f.str).join('*');
                         const expanded = math.rationalize(productStr);
                         // Use implicit: 'hide' to prevent dots between terms
-                        displayDenLatex = expanded.toTex({ implicit: 'hide' }).replace(/\\cdot/g, "");
+                        displayDenLatex = this.toLatex(expanded);
                     } catch (e) {
                         displayDenLatex = this.toLatex(denStr);
                     }
@@ -466,6 +520,7 @@
 
                 this.currentProblem = {
                     num: numStr || "1",
+                    numCoeffs: coeffs,
                     den: denStr, // Internal factorised version for comparison
                     factors: factors,
                     degNum: numDegree,
@@ -483,41 +538,111 @@
             solveCurrentProblem() {
                 const p = this.currentProblem;
                 p.targetTerms = [];
-                try {
-                    p.factors.forEach(f => {
-                        const m = f.str.match(/\(x([\+\-])(\d+)\)(\^(\d+))?/);
-                        if (m) {
-                            const rVal = parseInt(m[2]);
-                            const root = m[1] === '+' ? -rVal : rVal;
-                            const mult = m[4] ? parseInt(m[4]) : 1;
-                            const others = p.factors.filter(x => x !== f).map(x => x.str).join('*') || '1';
-                            // Simple cover-up at root
-                            const res = math.evaluate(`(${p.num})/(${others})`, { x: root });
-                            p.targetTerms.push({ root, res, mult, rVal });
-                        }
-                    });
-                } catch (e) { }
-                // Pre-solve the problem constants for feedback
-                // We use math.js to evaluate the numerator at factor roots (simplified cover-up)
-                // This is for Step 3/4 feedback
+                const computeTargetTerms = (numExp) => {
+                    let terms = [];
+                    try {
+                        p.factors.forEach(f => {
+                            const m = f.str.match(/\(x([\+\-])(\d+)\)(\^(\d+))?/);
+                            if (m) {
+                                const rVal = parseInt(m[2]);
+                                const root = m[1] === '+' ? -rVal : rVal;
+                                const mult = m[4] ? parseInt(m[4]) : 1;
+                                const others = p.factors.filter(x => x !== f).map(x => x.str).join('*') || '1';
+                                const res = math.evaluate(`(${numExp})/(${others})`, { x: root });
+                                terms.push({ root, res, mult, rVal });
+                            }
+                        });
+                    } catch (e) { }
+                    return terms;
+                };
+
+                if (p.isProper) {
+                    p.targetTerms = computeTargetTerms(p.num);
+                }
+
                 p.solved = {
-                    quotient: null,
-                    remainderNum: null,
-                    constants: {} // Maps factors to values
+                    quotient: "0",
+                    remainderNum: "0",
+                    constants: {}
                 };
 
                 try {
-                    // 1. Long division if improper
-                    if (!p.isProper) {
-                        const q = math.simplify(`floor((${p.num}) / (${p.den}))`);
-                        const r = math.simplify(`(${p.num}) - (${q} * (${p.den}))`);
-                        p.solved.quotient = q.toString();
-                        p.solved.remainderNum = r.toString();
-                    }
+                    // 1. Long division if improper using internal JS poly-divide
+                    if (!p.isProper && p.numCoeffs) {
+                        try {
+                            // Calculate denominator coefficients
+                            let denCoeffs = [1]; // Degree 0 initially
+                            p.factors.forEach(f => {
+                                let fCoeffs = [1];
+                                if (f.deg === 1) fCoeffs = [f.val * (f.str.includes('+') ? 1 : -1), 1];
+                                else if (f.deg === 2 && f.str.includes('^2')) {
+                                    let v = f.val * (f.str.includes('+') ? 1 : -1);
+                                    fCoeffs = [v * v, 2 * v, 1];
+                                } else if (f.deg === 2) {
+                                    fCoeffs = [f.val * f.val, 0, 1];
+                                }
+                                
+                                // Multiply
+                                let result = new Array(denCoeffs.length + fCoeffs.length - 1).fill(0);
+                                for (let i = 0; i < denCoeffs.length; i++) {
+                                    for (let j = 0; j < fCoeffs.length; j++) {
+                                        result[i + j] += denCoeffs[i] * fCoeffs[j];
+                                    }
+                                }
+                                denCoeffs = result;
+                            });
 
-                    // 2. Partial Fraction Constants (Numerical approximation)
-                    // We'll calculate target values for A, B, C...
-                    // For feedback, we just need the expected numerical values of any constants
+                            let numC = [...p.numCoeffs];
+                            let denC = [...denCoeffs];
+                            
+                            let qC = new Array(Math.max(1, numC.length - denC.length + 1)).fill(0);
+                            let rC = [...numC];
+                            
+                            while (rC.length >= denC.length && rC.length > 0) {
+                                let deg_r = rC.length - 1;
+                                let deg_d = denC.length - 1;
+                                let coeff = rC[deg_r] / denC[deg_d];
+                                qC[deg_r - deg_d] = coeff;
+                                
+                                for (let i = 0; i <= deg_d; i++) {
+                                    rC[deg_r - deg_d + i] -= coeff * denC[i];
+                                }
+                                
+                                while (rC.length > 0 && Math.abs(rC[rC.length - 1]) < 1e-10) {
+                                    rC.pop();
+                                }
+                            }
+                            if (rC.length === 0) rC = [0];
+
+                            const polyToString = (coeffs) => {
+                                if (!coeffs || coeffs.length === 0) return "0";
+                                let str = "";
+                                for (let i = coeffs.length - 1; i >= 0; i--) {
+                                    let c = Math.round(coeffs[i] * 1e10) / 1e10;
+                                    if (c === 0) continue;
+                                    let term = "";
+                                    if (i === 0) term = `${c}`;
+                                    else {
+                                        let absC = Math.abs(c);
+                                        let coeffStr = (absC === 1) ? "" : absC.toString();
+                                        let xPart = i === 1 ? "x" : `x^${i}`;
+                                        term = (c < 0 ? "-" : "") + coeffStr + xPart;
+                                    }
+                                    if (c > 0 && str.length > 0) str += "+";
+                                    str += term;
+                                }
+                                return str || "0";
+                            };
+
+                            p.solved.quotient = polyToString(qC);
+                            p.solved.remainderNum = polyToString(rC);
+                            p.solved.qCoeffs = qC;
+                            p.solved.rCoeffs = rC;
+                            p.targetTerms = computeTargetTerms(p.solved.remainderNum);
+                        } catch (e) {
+                            console.error("PolyDiv fallback failed", e);
+                        }
+                    }
                 } catch (e) { console.error("Solving failed", e); }
             },
 
@@ -596,10 +721,17 @@
 
                 if (!val.trim()) return;
 
+                // Reset UI state
+                row.classList.remove('correct', 'error');
+                const hintEl = document.getElementById(`hint-${id}`);
+                const previewEl = document.getElementById(`preview-${id}`);
+                hintEl.style.display = 'none';
+                hintEl.innerHTML = '';
+                void row.offsetWidth; // Trigger reflow
+
                 let isCorrect = false;
 
                 if (stepCount === 1) {
-                    // Step 1: Proper/Improper check
                     const ans = val.toLowerCase();
                     if (this.currentProblem.isProper) {
                         isCorrect = ans.includes('proper') && !ans.includes('improper');
@@ -607,37 +739,114 @@
                         isCorrect = ans.includes('improper');
                     }
                 } else if (stepCount === 2) {
-                    // Step 2: Factorized denominator check
                     isCorrect = this.compareExpressions(val, this.currentProblem.den);
                 } else {
-                    // General equivalence check
                     isCorrect = this.compareExpressions(val, this.currentProblem.raw);
                 }
 
-                row.classList.remove('correct', 'error');
-                const hintEl = document.getElementById(`hint-${id}`);
-                hintEl.style.display = 'none';
-                hintEl.innerHTML = '';
-                void row.offsetWidth; // Trigger reflow
-
                 if (isCorrect) {
                     row.classList.add('correct');
-                    if (stepCount > 2 && !/[A-E]/.test(val)) {
-                        this.showSuccess();
+                    const isFinalStep = (!this.currentProblem.isProper && stepCount === 4) || (this.currentProblem.isProper && stepCount === 3);
+                    if (isFinalStep && !/[A-E]/.test(val)) {
+                        this.showSuccess(id);
                     }
                 } else {
                     row.classList.add('error');
-                    // Add Hints
                     if (stepCount === 1) {
                         hintEl.innerHTML = "Compare the degree of the polynomials in the numerator and denominator and try again.";
                         hintEl.style.display = 'block';
                     } else if (stepCount === 2) {
-                        // Highlight wrong factors
                         this.checkStep2Factors(id, val);
                     } else if (stepCount >= 3) {
-                        this.highlightIncorrectNumbers(id, val);
-                        this.provideDecompositionHints(id, val);
+                        if (!this.currentProblem.isProper && stepCount === 3) {
+                            this.checkImproperStep3(id, val);
+                        } else {
+                            // Improper Step 4, Proper Step 3+
+                            this.highlightIncorrectNumbers(id, val);
+                            this.provideDecompositionHints(id, val);
+                        }
                     }
+                }
+            },
+
+            checkImproperStep3(id, val) {
+                const p = this.currentProblem;
+                const row = document.getElementById(`step-${id}`);
+                const previewEl = document.getElementById(`preview-${id}`);
+                const hintEl = document.getElementById(`hint-${id}`);
+
+                try {
+                    const normalizedVal = this.normalizeMathExpression(val);
+                    const userNode = math.parse(normalizedVal);
+                    let qTerms = [];
+                    let fTerms = [];
+                    
+                    const collect = (node) => {
+                        if (node.isParenthesisNode) {
+                            collect(node.content);
+                            return;
+                        }
+                        if (node.isOperatorNode && node.op === '+') {
+                            node.args.forEach(collect);
+                        } else if (node.isOperatorNode && node.op === '-' && node.args.length === 2) {
+                            collect(node.args[0]);
+                            const negNode = new math.OperatorNode('*', 'multiply', [
+                                new math.ConstantNode(-1),
+                                node.args[1]
+                            ]);
+                            collect(negNode);
+                        } else {
+                            let hasDiv = false;
+                            node.traverse(n => { if (n.isOperatorNode && n.op === '/') hasDiv = true; });
+                            if (hasDiv) fTerms.push(node);
+                            else qTerms.push(node);
+                        }
+                    };
+                    collect(userNode);
+
+                    const userQExpr = qTerms.length > 0 ? qTerms.map(t => `(${t.toString()})`).join('+') : "0";
+                    const userFExpr = fTerms.length > 0 ? fTerms.map(t => `(${t.toString()})`).join('+') : "0";
+
+                    const targetQ = p.solved.quotient || "0";
+                    
+                    const targetF = `(${p.solved.remainderNum || "0"}) / (${p.den})`;
+                    const isTotalCorrect = this.compareExpressions(val, p.raw);
+                    if (isTotalCorrect) return true;
+                    
+                    const isQCorrect = this.compareExpressions(userQExpr, targetQ);
+                    const isFCorrect = this.compareExpressions(userFExpr, targetF);
+
+                    row.classList.add('error');
+                    hintEl.innerHTML = "Please ensure you have done the long division correctly to obtain the correct quotient and fractional term.";
+                    hintEl.style.display = 'block';
+
+                    const qL = qTerms.length > 0 ? qTerms.map(t => this.toLatex(t)).join(' + ').replace(/\+ \-/g, '- ') : "";
+                    const fL = fTerms.length > 0 ? fTerms.map(t => this.toLatex(t)).join(' + ').replace(/\+ \-/g, '- ') : "";
+
+                    let finalLatex = "";
+                    if (!isQCorrect && !isFCorrect) {
+                        finalLatex = `{\\color{red} ${this.toLatex(userNode)} }`;
+                    } else if (!isQCorrect) {
+                        let fPart = fTerms.length > 0 ? (fL.startsWith('-') ? fL : `+ ${fL}`) : "";
+                        finalLatex = `{\\color{red} ${qL || '\\Box'} } ${fPart}`;
+                    } else if (!isFCorrect) {
+                        finalLatex = `${qL} ${qL && fTerms.length > 0 && !fL.startsWith('-') ? '+' : ''} {\\color{red} ${fL || '\\frac{\\Box}{\\Box}'} }`;
+                    } else {
+                        finalLatex = `{\\color{red} ${this.toLatex(userNode)} }`;
+                    }
+                    
+                    try {
+                        katex.render(finalLatex, previewEl, { throwOnError: true });
+                    } catch (e) {
+                        katex.render(`{\\color{red} ${this.toLatex(userNode)} }`, previewEl, { throwOnError: false });
+                    }
+                    return false;
+                } catch (e) {
+                    console.error("Long division check failed:", e);
+                    row.classList.add('error');
+                    hintEl.innerHTML = "Please enter a valid mathematical expression (e.g., x + 1 + 2/(x-1)).";
+                    hintEl.style.display = 'block';
+                    return false;
                 }
             },
 
@@ -645,41 +854,136 @@
                 const previewEl = document.getElementById(`preview-${id}`);
                 const p = this.currentProblem;
                 try {
-                    const userNode = math.parse(val);
+                    const normalizedVal = this.normalizeMathExpression(val);
+                    const userNode = math.parse(normalizedVal);
                     if (this.compareExpressions(val, p.raw)) return;
 
                     const terms = [];
                     const collect = (node) => {
-                        if (node.isOperatorNode && node.op === '+') node.args.forEach(collect);
-                        else if (node.isOperatorNode && node.op === '-') {
-                            collect(node.args[0]);
-                            terms.push(math.parse(`-1 * (${node.args[1].toString()})`));
+                        if (node.isParenthesisNode) {
+                            collect(node.content);
+                            return;
                         }
-                        else terms.push(node);
+                        if (node.isOperatorNode && node.op === '+') {
+                            node.args.forEach(collect);
+                        } else if (node.isOperatorNode && node.op === '-' && node.args.length === 2) {
+                            collect(node.args[0]);
+                            terms.push(new math.OperatorNode('*', 'multiply', [
+                                new math.ConstantNode(-1),
+                                node.args[1]
+                            ]));
+                        } else {
+                            terms.push(node);
+                        }
                     };
                     collect(userNode);
 
-                    const wrongNodes = new Set();
+                    const wrongTerms = new Set();
                     terms.forEach(term => {
-                        let bestMatch = null;
-                        try {
-                            const uRoot = this.getTermRoot(term);
-                            bestMatch = p.targetTerms.find(t => t.root === uRoot);
-                        } catch (e) { }
+                        let hasDiv = false;
+                        term.traverse(n => { if (n.isOperatorNode && n.op === '/') hasDiv = true; });
+                        
+                        // Check if it's a Quotient term
+                        if (!hasDiv && p.solved && p.solved.qCoeffs) {
+                            let isCorrectQTerm = false;
+                            try {
+                                const compiled = term.compile();
+                                const v2 = compiled.evaluate({x: 2});
+                                const v3 = compiled.evaluate({x: 3});
+                                if (Math.abs(v2) < 1e-10 && Math.abs(v3) < 1e-10) {
+                                    isCorrectQTerm = p.solved.qCoeffs[0] === 0;
+                                } else {
+                                    let v2_real = typeof v2 === 'number' ? v2 : v2.re;
+                                    let v3_real = typeof v3 === 'number' ? v3 : v3.re;
+                                    const deg = Math.round( Math.log(Math.abs(v3_real / v2_real)) / Math.log(1.5) );
+                                    if (!isNaN(deg) && deg >= 0 && deg < p.solved.qCoeffs.length) {
+                                        const c = v2_real / Math.pow(2, deg);
+                                        if (Math.abs(c - p.solved.qCoeffs[deg]) < 1e-5) {
+                                            isCorrectQTerm = true;
+                                        }
+                                    }
+                                }
+                            } catch(e) {}
+                            if (!isCorrectQTerm) wrongTerms.add(term);
 
-                        term.traverse((node) => {
-                            if (node.isConstantNode && typeof node.value === 'number') {
-                                if (!this.isConstantCorrectInTerm(term, node, bestMatch)) {
-                                    wrongNodes.add(node);
+                        } else {
+                            // It's a Fraction term, use singularity to check if robust, or fallback to constant check
+                            let isTermCorrect = false;
+                            
+                            try {
+                                let targetExpr = math.parse(this.normalizeMathExpression(p.raw)).compile();
+                                let termExpr = term.compile();
+                                
+                                // Find root of this term
+                                let uRoot = this.getTermRoot(term);
+                                
+                                if (uRoot !== null) {
+                                    const x_close = math.complex(uRoot, 1e-8);
+                                    const tVal = termExpr.evaluate({ x: x_close });
+                                    const targVal = targetExpr.evaluate({ x: x_close });
+                                    const diff = math.abs(math.subtract(targVal, tVal));
+                                    
+                                    if (diff < 1e4 && math.abs(tVal) > 1e4) {
+                                        isTermCorrect = true;
+                                    }
+                                }
+                            } catch(e) {}
+
+                            if (!isTermCorrect) {
+                                // Fallback to our trusty constant check (cover-up comparison)
+                                let uRoot = null;
+                                let bestMatch = null;
+                                try {
+                                    uRoot = this.getTermRoot(term);
+                                    if (uRoot !== null) bestMatch = p.targetTerms.find(t => t.root === uRoot);
+                                } catch (e) {}
+
+                                let hasConstants = false;
+                                let isConstantsCorrect = true;
+                                term.traverse((node) => {
+                                    if (node.isConstantNode && typeof node.value === 'number') {
+                                        hasConstants = true;
+                                        if (!this.isConstantCorrectInTerm(term, node, bestMatch)) {
+                                            isConstantsCorrect = false;
+                                        }
+                                    }
+                                });
+                                
+                                // If no constants exist to verify, we assume it's wrong (or the math structure itself is wrong)
+                                if (!hasConstants || !isConstantsCorrect) {
+                                    wrongTerms.add(term);
                                 }
                             }
-                        });
+                        }
                     });
 
-                    if (wrongNodes.size > 0) {
-                        katex.render(this.toLatex(userNode, wrongNodes), previewEl, { throwOnError: false });
-                    }
-                } catch (e) { }
+                    // Build final latex
+                    let finalLatex = "";
+                    terms.forEach((term, index) => {
+                        let isNeg = false;
+                        let renderTerm = term;
+                        if (term.isOperatorNode && term.op === '*' && term.args[0].isConstantNode && term.args[0].value === -1) {
+                            isNeg = true;
+                            renderTerm = term.args[1];
+                        }
+                        
+                        let l = this.toLatex(renderTerm);
+                        if (wrongTerms.has(term)) {
+                            l = `{\\color{red} ${l} }`;
+                        }
+                        
+                        if (index === 0) {
+                            finalLatex += (isNeg ? '-' : '') + l;
+                        } else {
+                            finalLatex += (isNeg ? ' - ' : ' + ') + l;
+                        }
+                    });
+
+                    katex.render(finalLatex, previewEl, { throwOnError: false });
+                } catch (e) {
+                    console.error("General parse error", e);
+                    katex.render(`{\\color{red} ${this.toLatex(val)} }`, previewEl, { throwOnError: false });
+                }
             },
 
             getTermRoot(node) {
@@ -783,36 +1087,57 @@
                     hintEl.style.display = 'block';
                 }
             },
+            normalizeMathExpression(s) {
+                if (!s) return "";
+                let res = s.toString().replace(/\s+/g, '');
+                // Auto-group factors in denominator: /(x+1)(x+2) -> /((x+1)(x+2))
+                // This identifies a slash followed by 2 or more parenthesized factors.
+                const f = '\\([^\\)]+\\)(?:\\^\\d+)?';
+                const polyGroup = new RegExp('\\/(' + f + '(?:' + f + ')+)', 'g');
+                res = res.replace(polyGroup, '/($1)');
+                
+                res = res.replace(/([0-9])([a-zA-Zx])/g, '$1*$2');
+                res = res.replace(/([A-Ex])([A-Ex])/g, '$1*$2');
+                res = res.replace(/([a-zA-Zx])([0-9])/g, '$1*$2');
+                res = res.replace(/(\))([0-9a-zA-Zx])/g, '$1*$2');
+                res = res.replace(/([0-9a-zA-Zx])(\()/g, '$1*$2');
+                res = res.replace(/(\))(\()/g, '$1*$2');
+                return res;
+            },
 
             compareExpressions(userInput, targetRaw) {
                 try {
-                    const problemExpr = math.parse(targetRaw).compile();
+                    if (!userInput || !targetRaw) return false;
+                    
+                    const uNorm = this.normalizeMathExpression(userInput);
+                    const tNorm = this.normalizeMathExpression(targetRaw);
 
-                    let processedInput = userInput
-                        .replace(/([A-E])\(/g, '$1*(')
-                        .replace(/([0-9])x/g, '$1*x');
+                    const userExpr = math.parse(uNorm).compile();
+                    const targetExpr = math.parse(tNorm).compile();
 
-                    const userExpr = math.parse(processedInput).compile();
-
-                    // Check at 3 random complex numbers to avoid zeros/poles
-                    for (let i = 0; i < 3; i++) {
-                        const x = math.complex(Math.random() * 10 + 1, Math.random() * 10 + 1);
+                    const points = [2.3, -1.7, 0.5, 3.1, -4.2];
+                    let validPoints = 0;
+                    for (let xNum of points) {
+                        const x = math.complex(xNum, 0.4); 
                         const constants = {
-                            A: math.complex(2.1, 1.4),
-                            B: math.complex(-1.5, 0.7),
-                            C: math.complex(0.3, -2.2),
-                            D: math.complex(1.1, 1.1),
-                            E: math.complex(-0.5, -0.5)
+                            A: math.complex(2.1, 0.7),
+                            B: math.complex(-1.3, 0.4),
+                            C: math.complex(0.5, -1.1),
+                            D: math.complex(1.4, 1.4),
+                            E: math.complex(-0.8, -0.6)
                         };
 
                         const scope = { x, ...constants };
-                        const probVal = problemExpr.evaluate(scope);
-                        const userVal = userExpr.evaluate(scope);
+                        const uVal = userExpr.evaluate(scope);
+                        const tVal = targetExpr.evaluate(scope);
 
-                        const diff = math.abs(math.subtract(probVal, userVal));
+                        const diff = math.abs(math.subtract(uVal, tVal));
+                        if (typeof diff !== 'number' || isNaN(diff)) continue;
+                        validPoints++;
+
                         if (diff > 1e-6) return false;
                     }
-                    return true;
+                    return validPoints > 0;
                 } catch (e) {
                     return false;
                 }
@@ -831,8 +1156,16 @@
                         implicit: 'hide',
                         handler: (node, callback) => {
                             if (wrongNodes.has(node)) {
-                                return `{\\color{red}${node.value}}`;
+                                return `\\textcolor{red}{${node.value}}`;
                             }
+                            // Custom handling for 1*variable and -1*variable
+                            if (node.isOperatorNode && node.op === '*' && node.args.length === 2) {
+                                if (node.args[0].isConstantNode && !wrongNodes.has(node.args[0])) {
+                                    if (node.args[0].value === 1) return callback(node.args[1]);
+                                    if (node.args[0].value === -1) return '-' + callback(node.args[1]);
+                                }
+                            }
+                            return undefined;
                         }
                     }).replace(/\\cdot/g, "");
                 } catch (e) { return typeof str === 'string' ? str : ""; }
@@ -844,13 +1177,19 @@
                 document.getElementById('empty-state').style.display = 'block';
             },
 
-            showSuccess() {
+            showSuccess(id) {
                 confetti({
                     particleCount: 150,
                     spread: 70,
                     origin: { y: 0.6 },
                     colors: ['#8b5cf6', '#06b6d4', '#10b981']
                 });
+                this.stopTimer();
+                if (id) {
+                    const hintEl = document.getElementById(`hint-${id}`);
+                    hintEl.innerHTML = "<span style='color: var(--correct); font-weight: bold; font-size: 1rem;'>WELL DONE! Everything is correct!</span>";
+                    hintEl.style.display = 'block';
+                }
             }
         };
 
