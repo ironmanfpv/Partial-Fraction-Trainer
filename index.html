@@ -42,11 +42,16 @@
             user-select: none;
         }
 
+        html {
+            height: -webkit-fill-available;
+        }
+
         body {
             font-family: 'Outfit', sans-serif;
             background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
             color: var(--text-main);
             height: 100vh;
+            min-height: -webkit-fill-available;
             overflow: hidden;
             display: flex;
         }
@@ -65,12 +70,14 @@
             z-index: 10;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            transform: translateZ(0); /* iOS swipe-freeze fix */
         }
 
         #main-workspace {
             flex: 1;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            transform: translateZ(0); /* iOS swipe-freeze fix */
             padding: 3rem 5rem;
             position: relative;
         }
@@ -338,13 +345,16 @@
         }
 
         /* --- Mobile Responsiveness --- */
-        /* Portrait Mode (Smartphones/iPhones) - Vertical Stack */
-        @media (max-width: 768px) and (orientation: portrait) {
+        /* Portrait Mode (Smartphones/Tablets/iPads) - Vertical Stack */
+        @media (max-width: 1024px) and (orientation: portrait) {
             body {
                 flex-direction: column;
                 overflow-y: auto;
+                overflow-x: hidden;
                 height: auto;
                 min-height: 100vh;
+                min-height: -webkit-fill-available;
+                min-height: 100dvh;
             }
 
             #sidebar {
